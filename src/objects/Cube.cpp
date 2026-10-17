@@ -1,96 +1,103 @@
 #include "Cube.h"
 #include "../Types.h"
+#include "../Blocks.h"
 #include "rlgl.h"
-#include <variant>
 
-void Cube::Draw(BlockData data, Vector3 position)
+namespace {
+    void EmitFace(Face face, float x, float y, float z)
+    {
+        const float w = 0.5f;
+        const float h = 0.5f;
+        const float l = 0.5f;
+
+        switch (face)
+        {
+            case FACE_FRONT: // +Z
+                rlTexCoord2f(0, 0); rlVertex3f(x - w, y - h, z + l);
+                rlTexCoord2f(1, 0); rlVertex3f(x + w, y - h, z + l);
+                rlTexCoord2f(1, 1); rlVertex3f(x + w, y + h, z + l);
+                rlTexCoord2f(0, 1); rlVertex3f(x - w, y + h, z + l);
+                break;
+
+            case FACE_BACK: // -Z
+                rlTexCoord2f(1, 0); rlVertex3f(x - w, y - h, z - l);
+                rlTexCoord2f(1, 1); rlVertex3f(x - w, y + h, z - l);
+                rlTexCoord2f(0, 1); rlVertex3f(x + w, y + h, z - l);
+                rlTexCoord2f(0, 0); rlVertex3f(x + w, y - h, z - l);
+                break;
+
+            case FACE_TOP: // +Y
+                rlTexCoord2f(0, 1); rlVertex3f(x - w, y + h, z - l);
+                rlTexCoord2f(0, 0); rlVertex3f(x - w, y + h, z + l);
+                rlTexCoord2f(1, 0); rlVertex3f(x + w, y + h, z + l);
+                rlTexCoord2f(1, 1); rlVertex3f(x + w, y + h, z - l);
+                break;
+
+            case FACE_BOTTOM: // -Y
+                rlTexCoord2f(1, 1); rlVertex3f(x - w, y - h, z - l);
+                rlTexCoord2f(0, 1); rlVertex3f(x + w, y - h, z - l);
+                rlTexCoord2f(0, 0); rlVertex3f(x + w, y - h, z + l);
+                rlTexCoord2f(1, 0); rlVertex3f(x - w, y - h, z + l);
+                break;
+
+            case FACE_RIGHT: // +X
+                rlTexCoord2f(1, 0); rlVertex3f(x + w, y - h, z - l);
+                rlTexCoord2f(1, 1); rlVertex3f(x + w, y + h, z - l);
+                rlTexCoord2f(0, 1); rlVertex3f(x + w, y + h, z + l);
+                rlTexCoord2f(0, 0); rlVertex3f(x + w, y - h, z + l);
+                break;
+
+            case FACE_LEFT: // -X
+                rlTexCoord2f(0, 0); rlVertex3f(x - w, y - h, z - l);
+                rlTexCoord2f(1, 0); rlVertex3f(x - w, y - h, z + l);
+                rlTexCoord2f(1, 1); rlVertex3f(x - w, y + h, z + l);
+                rlTexCoord2f(0, 1); rlVertex3f(x - w, y + h, z - l);
+                break;
+
+            default:
+                break;
+        }
+    }
+}
+
+void Cube::Draw(const BlockData& data, Vector3 position, unsigned char faces)
 {
-    float x = position.x;
-    float y = position.y;
-    float z = position.z;
+    if (faces == 0) return;
 
-    float w = 0.5f;
-    float h = 0.5f;
-    float l = 0.5f;
-
-    // Obtener las texturas de cada cara.
-    Texture2D frontTexture{};
-    Texture2D backTexture{};
-    Texture2D upTexture{};
-    Texture2D downTexture{};
-    Texture2D rightTexture{};
-    Texture2D leftTexture{};
-
-    if (auto* single = std::get_if<Texture2D>(&data.textures))
-    {
-        frontTexture = backTexture = upTexture =
-        downTexture = rightTexture = leftTexture = *single;
-    }
-    else if (auto* sides = std::get_if<BlockTextureSides>(&data.textures))
-    {
-        upTexture = sides->up;
-        downTexture = sides->down;
-
-        frontTexture = backTexture =
-        rightTexture = leftTexture = sides->side;
-    }
-    else if (auto* faces = std::get_if<BlockTextureFaces>(&data.textures))
-    {
-        upTexture = faces->up;
-        downTexture = faces->down;
-        frontTexture = faces->south;
-        backTexture = faces->north;
-        rightTexture = faces->east;
-        leftTexture = faces->west;
-    }
+    const float x = position.x;
+    const float y = position.y;
+    const float z = position.z;
 
     rlCheckRenderBatchLimit(36);
 
-    rlBegin(RL_QUADS);
-    rlColor4ub(255, 255, 255, 255);
+    const Face order[6] = {
+        FACE_TOP, FACE_BOTTOM, FACE_FRONT, FACE_BACK, FACE_RIGHT, FACE_LEFT
+    };
 
-    // Cara frontal (+Z)
-    rlSetTexture(frontTexture.id);
-    rlTexCoord2f(0, 0); rlVertex3f(x - w, y - h, z + l);
-    rlTexCoord2f(1, 0); rlVertex3f(x + w, y - h, z + l);
-    rlTexCoord2f(1, 1); rlVertex3f(x + w, y + h, z + l);
-    rlTexCoord2f(0, 1); rlVertex3f(x - w, y + h, z + l);
+    unsigned char drawn = 0;
 
-    // Cara trasera (-Z)
-    rlSetTexture(backTexture.id);
-    rlTexCoord2f(1, 0); rlVertex3f(x - w, y - h, z - l);
-    rlTexCoord2f(1, 1); rlVertex3f(x - w, y + h, z - l);
-    rlTexCoord2f(0, 1); rlVertex3f(x + w, y + h, z - l);
-    rlTexCoord2f(0, 0); rlVertex3f(x + w, y - h, z - l);
+    // Agrupa las caras que comparten textura para minimizar draw calls
+    for (Face face : order)
+    {
+        if (!(faces & face) || (drawn & face)) continue;
 
-    // Cara superior (+Y)
-    rlSetTexture(upTexture.id);
-    rlTexCoord2f(0, 1); rlVertex3f(x - w, y + h, z - l);
-    rlTexCoord2f(0, 0); rlVertex3f(x - w, y + h, z + l);
-    rlTexCoord2f(1, 0); rlVertex3f(x + w, y + h, z + l);
-    rlTexCoord2f(1, 1); rlVertex3f(x + w, y + h, z - l);
+        const std::string& path = Blocks::TexturePath(data, face);
 
-    // Cara inferior (-Y)
-    rlSetTexture(downTexture.id);
-    rlTexCoord2f(1, 1); rlVertex3f(x - w, y - h, z - l);
-    rlTexCoord2f(0, 1); rlVertex3f(x + w, y - h, z - l);
-    rlTexCoord2f(0, 0); rlVertex3f(x + w, y - h, z + l);
-    rlTexCoord2f(1, 0); rlVertex3f(x - w, y - h, z + l);
+        rlBegin(RL_QUADS);
+        rlColor4ub(255, 255, 255, 255);
+        rlSetTexture(Blocks::GetTexture(path).id);
 
-    // Cara derecha (+X)
-    rlSetTexture(rightTexture.id);
-    rlTexCoord2f(1, 0); rlVertex3f(x + w, y - h, z - l);
-    rlTexCoord2f(1, 1); rlVertex3f(x + w, y + h, z - l);
-    rlTexCoord2f(0, 1); rlVertex3f(x + w, y + h, z + l);
-    rlTexCoord2f(0, 0); rlVertex3f(x + w, y - h, z + l);
+        for (Face other : order)
+        {
+            if (!(faces & other) || (drawn & other)) continue;
+            if (path != Blocks::TexturePath(data, other)) continue;
 
-    // Cara izquierda (-X)
-    rlSetTexture(leftTexture.id);
-    rlTexCoord2f(0, 0); rlVertex3f(x - w, y - h, z - l);
-    rlTexCoord2f(1, 0); rlVertex3f(x - w, y - h, z + l);
-    rlTexCoord2f(1, 1); rlVertex3f(x - w, y + h, z + l);
-    rlTexCoord2f(0, 1); rlVertex3f(x - w, y + h, z - l);
+            EmitFace(other, x, y, z);
+            drawn |= other;
+        }
 
-    rlEnd();
+        rlEnd();
+    }
+
     rlSetTexture(0);
 }

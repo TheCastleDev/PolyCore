@@ -10,6 +10,7 @@ public:
 
     void Update(float deltaTime);
     void Begin3D() const;
+    Vector3 GetPosition();
 
     Camera3D GetCamera() const;
 

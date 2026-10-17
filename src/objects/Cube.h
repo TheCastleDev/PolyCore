@@ -4,6 +4,6 @@
 
 class Cube {
 public:
-    static void Draw(BlockData data, Vector3 position);
+    static void Draw(const BlockData& data, Vector3 position, unsigned char faces = FACE_ALL);
 };
 #endif

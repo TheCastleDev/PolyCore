@@ -1,6 +1,7 @@
 #include "WorldGenUtils.h"
 #include "raylib.h"
 #include "../Types.h"
+#include "../Blocks.h"
 #include "../objects/Cube.h"
 #include <cmath>
 
@@ -27,25 +28,42 @@ Image WorldGenUtils::GenNoise(int width, int height, int seed)
     return noiseImage;
 }
 
-void WorldGenUtils::GenerateTerrainFromHeightmap(Image heightmap, BlockData blockData, Vector3 startPos)
+void WorldGenUtils::GenerateTerrainFromHeightmap(Image heightmap, const BlockData& fillBlock, Vector3 startPos)
 {
     if (heightmap.data == nullptr) return;
+
+    auto cellHeight = [&](int x, int z) -> int
+    {
+        if (x < 0 || z < 0 || x >= heightmap.width || z >= heightmap.height) return -1;
+        return GetImageColor(heightmap, x, z).r;
+    };
 
     for (int z = 0; z < heightmap.height; z++)
     {
         for (int x = 0; x < heightmap.width; x++)
         {
-            Color pixelColor = GetImageColor(heightmap, x, z);
+            int height = cellHeight(x, z);
 
-            int height = pixelColor.r;
+            for (int iy = height; iy >= 0; iy--)
+            {
+                unsigned char faces = 0;
 
-            Vector3 cubePos = {
-                startPos.x + (float)x,
-                startPos.y + (float)height,
-                startPos.z + (float)z
-            };
+                if (cellHeight(x, z + 1) < iy) faces |= FACE_FRONT;
+                if (cellHeight(x, z - 1) < iy) faces |= FACE_BACK;
+                if (cellHeight(x + 1, z) < iy) faces |= FACE_RIGHT;
+                if (cellHeight(x - 1, z) < iy) faces |= FACE_LEFT;
+                if (iy == height) faces |= FACE_TOP;
+                if (iy == 0) faces |= FACE_BOTTOM;
 
-            Cube::Draw(blockData, cubePos);
+                Vector3 cubePos = {
+                    startPos.x + (float)x,
+                    startPos.y + (float)iy,
+                    startPos.z + (float)z
+                };
+
+                const BlockData& block = (iy == height) ? GRASS_BLOCK : fillBlock;
+                Cube::Draw(block, cubePos, faces);
+            }
         }
     }
 }

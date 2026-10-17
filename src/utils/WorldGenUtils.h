@@ -6,7 +6,7 @@
 struct WorldGenUtils
 {
     static Image GenNoise(int width, int height, int seed);
-    static void GenerateTerrainFromHeightmap(Image heightmap, BlockData blockData, Vector3 startPos);
+    static void GenerateTerrainFromHeightmap(Image heightmap, const BlockData& fillBlock, Vector3 startPos);
 };
 
 #endif

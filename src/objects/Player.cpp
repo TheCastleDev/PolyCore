@@ -127,7 +127,6 @@ void Player::Begin3D() const
     BeginMode3D(camera);
 }
 
-Camera3D Player::GetCamera() const
-{
-    return camera;
+Vector3 Player::GetPosition(){
+    return camera.position;
 }
